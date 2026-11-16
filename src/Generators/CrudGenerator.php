@@ -5,13 +5,16 @@ namespace Mcrud\Crud\Generators;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\Artisan;
 use RuntimeException;
+use Throwable;
 
 class CrudGenerator
 {
     public function __construct(private readonly Filesystem $files) {}
 
-    public function generate(array $data): void
+    /** @return array{seeders: list<string>, dashboard: bool} */
+    public function generate(array $data): array
     {
         $plan = $this->plan($data);
         $permissions = collect($data['permissions'] ?? [])->unique()->values()->all();
@@ -31,6 +34,7 @@ class CrudGenerator
             $this->write(database_path('migrations/'.$base->copy()->addSeconds($step++)->format('Y_m_d_His')."_create_{$pivot['table']}_table.php"), $this->pivotMigration($pivot));
         }
 
+        $seeders = [];
         foreach ($plan['tables'] as $t) {
             ['model' => $model, 'table' => $table, 'controller' => $controller, 'fields' => $fields] = $t;
             $this->write(app_path("Models/{$model}.php"), $this->model($model, $fields, $t['relations']));
@@ -40,11 +44,35 @@ class CrudGenerator
             $middleware = $permissions ? "->middleware('auth')" : '';
             $this->appendRoute("Route::resource('{$table}', \\App\\Http\\Controllers\\{$controller}::class){$middleware};");
             foreach ($data['locales'] as $locale) $this->translations($locale, $model, $table, $fields);
-            if ($permissions) $this->permissionSeeder($table, $permissions, $data['roles'] ?? '');
+            if ($permissions) $seeders[] = $this->permissionSeeder($table, $permissions, $data['roles'] ?? '');
         }
 
-        if (!empty($data['dashboard'])) $this->dashboard($plan['tables'][0]['model'], $plan['tables'][0]['table']);
+        $dashboard = !empty($data['dashboard']) && $this->dashboard($plan['tables']);
         $this->recordProjectProfile($data['project'], collect($plan['tables'])->pluck('model')->all());
+
+        return ['seeders' => $seeders, 'dashboard' => $dashboard];
+    }
+
+    /** Runs pending migrations and the generated permission seeders; returns human-readable result lines. */
+    public function migrateAndSeed(array $seeders): array
+    {
+        $messages = [];
+        try {
+            Artisan::call('migrate', ['--force' => true]);
+            $messages[] = 'Database migrated.';
+        } catch (Throwable $e) {
+            return ["Files were generated, but migration failed: {$e->getMessage()}. Run php artisan migrate manually."];
+        }
+        foreach ($seeders as $class) {
+            try {
+                Artisan::call('db:seed', ['--class' => "Database\\Seeders\\{$class}", '--force' => true]);
+            } catch (Throwable $e) {
+                $messages[] = "Seeder {$class} failed: {$e->getMessage()}. Is spatie/laravel-permission migrated?";
+                return $messages;
+            }
+        }
+        if ($seeders) $messages[] = 'Permissions and roles seeded.';
+        return $messages;
     }
 
     /** Normalises the submitted tables and relations into an ordered, dependency-safe generation plan. */
@@ -206,19 +234,26 @@ class CrudGenerator
         $this->write(lang_path("{$locale}/{$table}.php"), "<?php\n\nreturn [\n{$body}\n];\n");
     }
 
-    private function permissionSeeder(string $table, array $permissions, string $roles): void
+    private function permissionSeeder(string $table, array $permissions, string $roles): string
     {
         $class = Str::studly(Str::singular($table)).'PermissionSeeder';
         $permissionsCode = collect($permissions)->map(fn ($permission) => "        Permission::findOrCreate('{$table}.{$permission}');")->implode("\n");
         $roleNames = collect(explode(',', $roles))->map(fn ($role) => trim($role))->filter()->unique();
         $rolesCode = $roleNames->map(fn ($role) => "        Role::findOrCreate('{$role}')->givePermissionTo([".collect($permissions)->map(fn ($p) => "'{$table}.{$p}'")->implode(', ').']);')->implode("\n");
         $this->write(database_path("seeders/{$class}.php"), "<?php\n\nnamespace Database\\Seeders;\n\nuse Illuminate\\Database\\Seeder;\nuse Spatie\\Permission\\Models\\Permission;\nuse Spatie\\Permission\\Models\\Role;\n\nclass {$class} extends Seeder\n{\n    public function run(): void\n    {\n{$permissionsCode}\n{$rolesCode}\n    }\n}\n");
+        return $class;
     }
 
-    private function dashboard(string $model, string $table): void
+    private function dashboard(array $tables): bool
     {
-        $this->write(app_path('Http/Controllers/DashboardController.php'), "<?php\n\nnamespace App\\Http\\Controllers;\n\nuse App\\Models\\{$model};\n\nclass DashboardController extends Controller { public function index() { return view('dashboard', ['count' => {$model}::count()]); } }\n");
-        $this->write(resource_path('views/dashboard.blade.php'), "<h1>Dashboard</h1><p>Total {$table}: {{ \$count }}</p><a href=\"{{ route('{$table}.index') }}\">Manage {$table}</a>\n");
+        $controller = app_path('Http/Controllers/DashboardController.php');
+        if ($this->files->exists($controller) || $this->files->exists(resource_path('views/dashboard.blade.php'))) return false;
+
+        $uses = collect($tables)->map(fn ($t) => "use App\\Models\\{$t['model']};")->implode("\n");
+        $stats = collect($tables)->map(fn ($t) => "            ['label' => '".Str::headline($t['table'])."', 'count' => {$t['model']}::count(), 'route' => '{$t['table']}.index'],")->implode("\n");
+        $this->write($controller, "<?php\n\nnamespace App\\Http\\Controllers;\n\n{$uses}\n\nclass DashboardController extends Controller\n{\n    public function index()\n    {\n        return view('dashboard', ['stats' => [\n{$stats}\n        ]]);\n    }\n}\n");
+        $this->write(resource_path('views/dashboard.blade.php'), "<h1>Dashboard</h1>\n<div style=\"display:flex;gap:16px;flex-wrap:wrap\">\n@foreach(\$stats as \$stat)\n    <a href=\"{{ route(\$stat['route']) }}\" style=\"padding:20px;border:1px solid #ddd;border-radius:12px;min-width:160px;text-decoration:none;color:inherit\"><div style=\"font-size:32px;font-weight:700\">{{ \$stat['count'] }}</div><div>{{ \$stat['label'] }}</div></a>\n@endforeach\n</div>\n");
         $this->appendRoute("Route::get('/dashboard', [\\App\\Http\\Controllers\\DashboardController::class, 'index'])->name('dashboard');");
+        return true;
     }
 }

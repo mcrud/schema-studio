@@ -44,8 +44,14 @@ class CrudGeneratorController
             'permissions.*' => ['in:view,create,update,delete'],
             'roles' => ['nullable', 'string', 'max:255', 'regex:/^[A-Za-z0-9_ ,-]+$/'],
             'dashboard' => ['nullable', 'boolean'],
+            'migrate' => ['nullable', 'boolean'],
         ]);
-        $generator->generate($data);
-        return back()->with('status', 'CRUD created for all tables. Run php artisan migrate to create the table.');
+        $report = $generator->generate($data);
+        $messages = ['CRUD created for all tables.'];
+        if ($report['dashboard']) $messages[] = 'Dashboard ready at /dashboard.';
+        if ($request->boolean('migrate')) $messages = array_merge($messages, $generator->migrateAndSeed($report['seeders']));
+        else $messages[] = 'Run php artisan migrate to create the tables.';
+
+        return back()->with('status', implode(' ', $messages));
     }
 }

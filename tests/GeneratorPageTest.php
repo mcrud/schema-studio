@@ -37,4 +37,12 @@ class GeneratorPageTest extends TestCase
         $view = $this->view();
         foreach (['id="add-table"', 'id="auto-layout"', 'link-handle', 'belongsToMany', 'hasMany', 'hasOne', 'function drawLinks()'] as $expected) self::assertStringContainsString($expected, $view);
     }
+
+    public function test_generation_can_migrate_seed_and_prepare_the_dashboard(): void
+    {
+        $view = $this->view();
+        foreach (['name="migrate"', 'name="dashboard" value="1" checked'] as $expected) self::assertStringContainsString($expected, $view);
+        $controller = (string) file_get_contents(__DIR__.'/../src/Http/Controllers/CrudGeneratorController.php');
+        foreach (["'migrate' => ['nullable', 'boolean']", 'migrateAndSeed'] as $expected) self::assertStringContainsString($expected, $controller);
+    }
 }
