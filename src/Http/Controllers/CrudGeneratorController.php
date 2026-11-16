@@ -2,11 +2,14 @@
 
 namespace Mcrud\Crud\Http\Controllers;
 
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Mcrud\Crud\Generators\CrudGenerator;
+use Mcrud\Crud\Schema\SchemaIntrospector;
 use Mcrud\Crud\Support\ColumnTypes;
+use Throwable;
 
 class CrudGeneratorController
 {
@@ -16,6 +19,15 @@ class CrudGeneratorController
         $project = is_file($path) ? json_decode((string) file_get_contents($path), true) : [];
 
         return view('crud::generator', ['project' => is_array($project) ? $project : []]);
+    }
+
+    public function introspect(SchemaIntrospector $introspector): JsonResponse
+    {
+        try {
+            return response()->json($introspector->describe());
+        } catch (Throwable $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
     }
 
     public function store(Request $request, CrudGenerator $generator): RedirectResponse
@@ -33,6 +45,8 @@ class CrudGeneratorController
             'tables.*.fields.*.type' => ['required', 'in:'.implode(',', ColumnTypes::names())],
             'tables.*.fields.*.nullable' => ['nullable', 'boolean'],
             'tables.*.fields.*.unique' => ['nullable', 'boolean'],
+            'tables.*.existing' => ['nullable', 'boolean'],
+            'tables.*.fields.*.existing' => ['nullable', 'boolean'],
             'tables.*.soft_deletes' => ['nullable', 'boolean'],
             'tables.*.timestamps' => ['nullable', 'boolean'],
             'tables.*.fields.*.values' => ['nullable', 'string', 'max:255', 'regex:/^[A-Za-z0-9_ ,.\\-]+$/'],
@@ -42,6 +56,8 @@ class CrudGeneratorController
             'relations.*.to' => ['required', 'string', 'max:80'],
             'relations.*.type' => ['required', 'in:hasMany,hasOne,belongsToMany'],
             'relations.*.nullable' => ['nullable', 'boolean'],
+            'relations.*.existing' => ['nullable', 'boolean'],
+            'relations.*.key' => ['nullable', 'string', 'max:80', 'regex:/^[A-Za-z][A-Za-z0-9_]*$/'],
             'locales' => ['required', 'array', 'min:1'],
             'locales.*' => ['in:en,ar'],
             'permissions' => ['nullable', 'array'],
@@ -58,6 +74,7 @@ class CrudGeneratorController
             $messages[] = "{$skip['model']} already exists, so it was skipped".($skip['newForeignKeys'] ? ' (its new foreign keys '.implode(', ', $skip['newForeignKeys']).' were not added; create a migration for them)' : '').'.';
         }
         array_unshift($messages, $report['skipped'] ? 'CRUD created for the new tables.' : 'CRUD created for all tables.');
+        if ($report['altered']) $messages[] = 'Added an ALTER migration for new columns on: '.implode(', ', $report['altered']).'.';
         if ($report['dashboard']) $messages[] = 'Dashboard ready at /dashboard.';
         if ($report['demo'] && !$request->boolean('migrate')) $messages[] = "Run php artisan db:seed --class={$report['demo']} for sample data.";
         if ($request->boolean('migrate')) $messages = array_merge($messages, $generator->migrateAndSeed($report['seeders']));

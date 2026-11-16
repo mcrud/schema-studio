@@ -20,11 +20,18 @@ class CrudGenerator
         $this->stubs = $stubs ?? new StubRenderer();
     }
 
-    /** @return array{seeders: list<string>, dashboard: bool, skipped: list<array{model: string, newForeignKeys: list<string>}>, demo: ?string} */
+    /** @return array{seeders: list<string>, dashboard: bool, skipped: list<array{model: string, newForeignKeys: list<string>}>, demo: ?string, altered: list<string>} */
     public function generate(array $data): array
     {
         $plan = $this->plan($data);
         $permissions = collect($data['permissions'] ?? [])->unique()->values()->all();
+
+        // Columns/foreign keys added in the designer to tables imported from the database become ALTER migrations.
+        $alters = [];
+        foreach ($plan['tables'] as $t) {
+            $new = array_values(array_filter($t['fields'], fn ($f) => !$f['existing']));
+            if ($t['existing'] && $new) $alters[] = ['table' => $t['table'], 'model' => $t['model'], 'fields' => $new];
+        }
 
         // Tables that already exist in the app are skipped instead of aborting the whole run.
         $skipped = [];
@@ -32,19 +39,24 @@ class CrudGenerator
             $exists = $this->files->exists(app_path("Models/{$t['model']}.php"))
                 || $this->files->exists(app_path("Http/Controllers/{$t['controller']}.php"))
                 || $this->files->exists(resource_path("views/{$t['table']}/index.blade.php"))
-                || $this->migrationExists("create_{$t['table']}_table");
-            if ($exists) $skipped[] = ['model' => $t['model'], 'newForeignKeys' => collect($t['fields'])->whereNotNull('foreign')->pluck('name')->all()];
+                || (!$t['existing'] && $this->migrationExists("create_{$t['table']}_table"));
+            if ($exists) $skipped[] = ['model' => $t['model'], 'newForeignKeys' => $t['existing'] ? [] : collect($t['fields'])->whereNotNull('foreign')->pluck('name')->all()];
             return !$exists;
         }));
-        $plan['pivots'] = array_values(array_filter($plan['pivots'], fn ($pivot) => !$this->migrationExists("create_{$pivot['table']}_table")));
+        $plan['pivots'] = array_values(array_filter($plan['pivots'], fn ($pivot) => !$pivot['existing'] && !$this->migrationExists("create_{$pivot['table']}_table")));
 
         $base = now();
         $step = 0;
         foreach ($plan['tables'] as $t) {
+            if ($t['existing']) continue;
             $this->write(database_path('migrations/'.$base->copy()->addSeconds($step++)->format('Y_m_d_His')."_create_{$t['table']}_table.php"), $this->migration($t['table'], $t['fields'], $t));
         }
         foreach ($plan['pivots'] as $pivot) {
             $this->write(database_path('migrations/'.$base->copy()->addSeconds($step++)->format('Y_m_d_His')."_create_{$pivot['table']}_table.php"), $this->pivotMigration($pivot));
+        }
+
+        foreach ($alters as $alter) {
+            $this->write(database_path('migrations/'.$base->copy()->addSeconds($step++)->format('Y_m_d_His')."_add_columns_to_{$alter['table']}_table.php"), $this->alterMigration($alter['table'], $alter['fields']));
         }
 
         $seeders = [];
@@ -75,7 +87,7 @@ class CrudGenerator
         $dashboard = !empty($data['dashboard']) && $plan['tables'] !== [] && $this->dashboard($plan['tables']);
         $this->recordProjectProfile($data['project'], collect($plan['tables'])->pluck('model')->all());
 
-        return ['seeders' => $seeders, 'dashboard' => $dashboard, 'skipped' => $skipped, 'demo' => $demo];
+        return ['seeders' => $seeders, 'dashboard' => $dashboard, 'skipped' => $skipped, 'demo' => $demo, 'altered' => array_column($alters, 'model')];
     }
 
     /** Runs pending migrations and the generated permission seeders; returns human-readable result lines. */
@@ -113,13 +125,13 @@ class CrudGenerator
                 $name = Str::snake($f['name']);
                 if (in_array($name, $names, true)) throw ValidationException::withMessages(['tables' => "Duplicate column {$name} in {$input['name']}."]);
                 $names[] = $name;
-                return ['name' => $name, 'type' => $f['type'], 'nullable' => !empty($f['nullable']), 'unique' => !empty($f['unique']), 'default' => $f['default'] ?? null, 'foreign' => null, 'values' => $f['type'] === 'enum' ? ColumnTypes::enumValues($f['values'] ?? '') : []];
+                return ['name' => $name, 'type' => $f['type'], 'nullable' => !empty($f['nullable']), 'unique' => !empty($f['unique']), 'default' => $f['default'] ?? null, 'existing' => !empty($f['existing']), 'foreign' => null, 'values' => $f['type'] === 'enum' ? ColumnTypes::enumValues($f['values'] ?? '') : []];
                 
             })->all();
             foreach ($fields as $f) {
                 if ($f['type'] === 'enum' && !$f['values']) throw ValidationException::withMessages(['tables' => "Column {$f['name']} in {$input['name']} is an enum and needs at least one value."]);
             }
-            $tables[$key] = ['model' => Str::studly(Str::singular($resource)), 'table' => Str::plural($resource), 'controller' => Str::studly(Str::plural($resource)).'Controller', 'fields' => $fields, 'display' => $this->displayColumn($fields), 'soft_deletes' => !empty($input['soft_deletes']), 'timestamps' => !isset($input['timestamps']) || filter_var($input['timestamps'], FILTER_VALIDATE_BOOLEAN), 'relations' => [], 'depends' => []];
+            $tables[$key] = ['model' => Str::studly(Str::singular($resource)), 'table' => Str::plural($resource), 'controller' => Str::studly(Str::plural($resource)).'Controller', 'fields' => $fields, 'display' => $this->displayColumn($fields), 'existing' => !empty($input['existing']), 'soft_deletes' => !empty($input['soft_deletes']), 'timestamps' => !isset($input['timestamps']) || filter_var($input['timestamps'], FILTER_VALIDATE_BOOLEAN), 'relations' => [], 'depends' => []];
         }
 
         $pivots = [];
@@ -135,19 +147,22 @@ class CrudGenerator
                 $pair = collect([Str::singular($parent['table']), Str::singular($child['table'])])->sort()->values();
                 $pivotTable = $pair->implode('_');
                 if (collect($pivots)->contains('table', $pivotTable)) continue;
-                $pivots[] = ['table' => $pivotTable, 'a' => [Str::singular($parent['table']).'_id', $parent['table']], 'b' => [Str::singular($child['table']).'_id', $child['table']]];
+                $pivots[] = ['existing' => !empty($r['existing']), 'table' => $pivotTable, 'a' => [Str::singular($parent['table']).'_id', $parent['table']], 'b' => [Str::singular($child['table']).'_id', $child['table']]];
                 $tables[$from]['relations'][] = ['type' => 'belongsToMany', 'name' => Str::camel($child['table']), 'model' => $child['model'], 'pivot' => $pivotTable, 'table' => $child['table'], 'display' => $child['display'], 'owner' => true];
                 $tables[$to]['relations'][] = ['type' => 'belongsToMany', 'name' => Str::camel($parent['table']), 'model' => $parent['model'], 'pivot' => $pivotTable, 'table' => $parent['table'], 'display' => $parent['display'], 'owner' => false];
                 continue;
             }
 
-            $foreignKey = Str::singular($parent['table']).'_id';
+            $foreignKey = !empty($r['key']) ? Str::snake($r['key']) : Str::singular($parent['table']).'_id';
+            $parentRelation = !empty($r['key']) ? Str::camel(Str::replaceLast('_id', '', $foreignKey)) : Str::camel($parent['model']);
             if (!collect($tables[$to]['fields'])->contains('name', $foreignKey)) {
-                array_unshift($tables[$to]['fields'], ['name' => $foreignKey, 'type' => 'foreignId', 'nullable' => !empty($r['nullable']), 'unique' => $r['type'] === 'hasOne', 'default' => null, 'foreign' => $parent['table'], 'relation' => Str::camel($parent['model']), 'related' => $parent['model'], 'display' => $parent['display']]);
+                array_unshift($tables[$to]['fields'], ['name' => $foreignKey, 'type' => 'foreignId', 'nullable' => !empty($r['nullable']), 'unique' => $r['type'] === 'hasOne', 'default' => null, 'foreign' => $parent['table'], 'existing' => !empty($r['existing']), 'relation' => $parentRelation, 'related' => $parent['model'], 'display' => $parent['display']]);
             }
             $tables[$to]['depends'][] = $from;
-            $tables[$from]['relations'][] = ['type' => $r['type'], 'name' => $r['type'] === 'hasOne' ? Str::camel($child['model']) : Str::camel($child['table']), 'model' => $child['model'], 'key' => $foreignKey];
-            $tables[$to]['relations'][] = ['type' => 'belongsTo', 'name' => Str::camel($parent['model']), 'model' => $parent['model'], 'key' => $foreignKey];
+            $childName = $r['type'] === 'hasOne' ? Str::camel($child['model']) : Str::camel($child['table']);
+            if (collect($tables[$from]['relations'])->contains('name', $childName)) $childName .= 'By'.Str::studly(Str::replaceLast('_id', '', $foreignKey));
+            $tables[$from]['relations'][] = ['type' => $r['type'], 'name' => $childName, 'model' => $child['model'], 'key' => $foreignKey];
+            $tables[$to]['relations'][] = ['type' => 'belongsTo', 'name' => $parentRelation, 'model' => $parent['model'], 'key' => $foreignKey];
         }
 
         $ordered = [];
@@ -194,22 +209,36 @@ class CrudGenerator
         if (!str_contains($contents, $route)) $this->files->put($path, rtrim($contents)."\n\n{$route}\n");
     }
 
+    private function columnLine(array $f): string
+    {
+        if ($f['type'] === 'foreignId') {
+            $column = "            \$table->foreignId('{$f['name']}')".($f['nullable'] ? '->nullable()' : '')."->constrained('{$f['foreign']}')".($f['nullable'] ? '->nullOnDelete()' : '->cascadeOnDelete()');
+
+            return $column.($f['unique'] ? '->unique()' : '').';';
+        }
+        $args = $f['type'] === 'enum' ? ", ['".implode("', '", array_map(fn ($v) => str_replace("'", "\\'", $v), $f['values']))."']" : '';
+        $column = "            \$table->{$f['type']}('{$f['name']}'{$args})";
+        if ($f['nullable']) $column .= '->nullable()';
+        if ($f['unique']) $column .= '->unique()';
+        if ($f['default'] !== null && $f['default'] !== '') $column .= "->default('".str_replace("'", "\\'", $f['default'])."')";
+
+        return $column.';';
+    }
+
     private function migration(string $table, array $fields, array $opts = []): string
     {
-        $columns = collect($fields)->map(function ($f): string {
-            if ($f['type'] === 'foreignId') {
-                $column = "            \$table->foreignId('{$f['name']}')".($f['nullable'] ? '->nullable()' : '')."->constrained('{$f['foreign']}')".($f['nullable'] ? '->nullOnDelete()' : '->cascadeOnDelete()');
-                return $column.($f['unique'] ? '->unique()' : '').';';
-            }
-            $args = $f['type'] === 'enum' ? ", ['".implode("', '", array_map(fn ($v) => str_replace("'", "\\'", $v), $f['values']))."']" : '';
-            $column = "            \$table->{$f['type']}('{$f['name']}'{$args})";
-            if ($f['nullable']) $column .= '->nullable()';
-            if ($f['unique']) $column .= '->unique()';
-            if ($f['default'] !== null && $f['default'] !== '') $column .= "->default('".str_replace("'", "\\'", $f['default'])."')";
-            return $column.';';
-        })->implode("\n");
+        $columns = collect($fields)->map(fn ($f) => $this->columnLine($f))->implode("\n");
         $extra = (($opts['timestamps'] ?? true) ? "            \$table->timestamps();\n" : '').(!empty($opts['soft_deletes']) ? "            \$table->softDeletes();\n" : '');
+
         return "<?php\n\nuse Illuminate\\Database\\Migrations\\Migration;\nuse Illuminate\\Database\\Schema\\Blueprint;\nuse Illuminate\\Support\\Facades\\Schema;\n\nreturn new class extends Migration { public function up(): void { Schema::create('{$table}', function (Blueprint \$table): void {\n            \$table->id();\n{$columns}\n{$extra}        }); } public function down(): void { Schema::dropIfExists('{$table}'); } };\n";
+    }
+
+    private function alterMigration(string $table, array $fields): string
+    {
+        $up = collect($fields)->map(fn ($f) => $this->columnLine($f))->implode("\n");
+        $down = collect($fields)->map(fn ($f) => $f['type'] === 'foreignId' ? "            \$table->dropConstrainedForeignId('{$f['name']}');" : "            \$table->dropColumn('{$f['name']}');")->implode("\n");
+
+        return "<?php\n\nuse Illuminate\\Database\\Migrations\\Migration;\nuse Illuminate\\Database\\Schema\\Blueprint;\nuse Illuminate\\Support\\Facades\\Schema;\n\nreturn new class extends Migration {\n    public function up(): void\n    {\n        Schema::table('{$table}', function (Blueprint \$table): void {\n{$up}\n        });\n    }\n\n    public function down(): void\n    {\n        Schema::table('{$table}', function (Blueprint \$table): void {\n{$down}\n        });\n    }\n};\n";
     }
 
     private function pivotMigration(array $pivot): string

@@ -34,6 +34,7 @@ Package discovery registers the package. Open `/crud-generator` to start. The Sp
      Mark a one-to-many or one-to-one relation as *Optional* for a nullable foreign key (`nullOnDelete`).
    - The **Migration** tab previews the generated migration, including foreign keys and pivots.
    - **Undo / redo** (`Ctrl/⌘+Z`, `Ctrl/⌘+Shift+Z`), **zoom** (`Ctrl/⌘+scroll`, `+`/`-`, **Fit**), drag the background to **pan**, a **minimap**, and **find** table/column. Press `?` for all shortcuts.
+   - **Import from DB** reads the connected database and drops its tables, columns, foreign keys (as relations) and many-to-many pivots onto the canvas. Imported tables are marked **DB**; their columns are read-only, and any column or relation you add generates an `add_columns_to_<table>_table` ALTER migration instead of a create migration. Importing needs Laravel 11+, tables must follow Laravel naming (`id` primary key, plural snake_case) and system tables (`migrations`, `jobs`, `sessions`, Spatie permission tables, ...) are hidden; add more in `import_exclude` in `config/crud.php`.
    - Your draft is **autosaved in the browser** and restored on the next visit (**New** starts over).
    - **Export** the schema as JSON, the diagram as SVG or PNG, or copy a **Mermaid ERD**; **Import JSON** loads a saved schema.
 3. **Access & generate** – translations (English / Arabic), permissions (`view`, `create`, `update`, `delete`), roles, **Run migrations & seed permissions** and **Create dashboard** (both on by default), and optional **sample data**.
@@ -50,7 +51,7 @@ For every table:
 - **Tailwind views** (`index` and `form`) inside a generated `layouts/app.blade.php` (created once, with an auto-updated nav): the right input per type (checkbox, textarea, date, datetime-local, number), a `<select>` for foreign keys and a multi-select for many-to-many relations;
 - a `Route::resource` entry, language files and, when permissions are selected, a `<Model>PermissionSeeder`.
 
-Pivot tables get a migration only. Circular `hasMany`/`hasOne` relations are rejected. Tick **Add sample data** to also generate a `StudioDemoSeeder` that seeds N rows per table and attaches many-to-many relations.
+Pivot tables get a migration only. Tables imported from the database get everything except a create migration (plus an ALTER migration for anything new). Circular `hasMany`/`hasOne` relations are rejected. Tick **Add sample data** to also generate a `StudioDemoSeeder` that seeds N rows per table and attaches many-to-many relations.
 
 With **Run migrations & seed permissions** enabled, the generator runs `php artisan migrate --force` (this applies *all* pending migrations) and then each generated permission seeder. If a step fails, the generated files are kept and the message tells you what to run manually. Turn the option off to run `php artisan migrate` and `php artisan db:seed --class=ProductPermissionSeeder` yourself.
 
@@ -70,6 +71,9 @@ Permissions use `spatie/laravel-permission`. Enter comma-separated roles (for ex
 return [
     'route_prefix' => 'crud-generator',
     'middleware' => ['web'],
+
+    // Extra table names that the "Import from DB" dialog should hide.
+    'import_exclude' => [],
 ];
 ```
 

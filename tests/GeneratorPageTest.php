@@ -73,4 +73,12 @@ class GeneratorPageTest extends TestCase
         self::assertStringContainsString("crud-generator.asset", $routes);
         self::assertFileExists(__DIR__.'/../resources/js/studio.js');
     }
+
+    public function test_designer_can_import_existing_database_tables(): void
+    {
+        $view = $this->view();
+        foreach (['id="import-db"', 'id="db-import"', 'id="db-confirm"', "route('crud-generator.introspect')"] as $expected) self::assertStringContainsString($expected, $view);
+        $js = $this->js();
+        foreach (['function importFromDb()', 'function openImport()', 'existing:true', 'relations[${ri}][existing]', 'tables[${ti}][existing]', 'Schema::table('] as $expected) self::assertStringContainsString($expected, $js);
+    }
 }
