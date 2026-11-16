@@ -1,6 +1,6 @@
 {
-    "name": "mcrud/crud",
-    "description": "A browser-based CRUD and dashboard generator for Laravel.",
+    "name": "mcrud/schema-studio",
+    "description": "A browser-based Laravel schema, CRUD and dashboard generator.",
     "type": "library",
     "license": "MIT",
     "authors": [
