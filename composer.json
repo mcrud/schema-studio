@@ -1,5 +1,6 @@
 {
     "name": "mcrud/crud",
+    "description": "A browser-based CRUD and dashboard generator for Laravel.",
     "type": "library",
     "license": "MIT",
     "authors": [
@@ -8,11 +9,16 @@
             "email": "m7mdelbadry72@gmail.com"
         }
     ],
-    "autoload": {
-        "psr-4": {
-            "mcrud\\crud\\" : "src"
-        }
+    "require": {
+        "php": "^8.2",
+        "illuminate/console": "^10.0|^11.0|^12.0",
+        "illuminate/filesystem": "^10.0|^11.0|^12.0",
+        "illuminate/support": "^10.0|^11.0|^12.0",
+        "illuminate/view": "^10.0|^11.0|^12.0",
+        "spatie/laravel-permission": "^6.0"
     },
-    "minimum-stability": "dev",
-    "require": {}
+    "autoload": {"psr-4": {"Mcrud\\Crud\\": "src/"}},
+    "extra": {"laravel": {"providers": ["Mcrud\\Crud\\CrudServiceProvider"]}},
+    "minimum-stability": "stable",
+    "prefer-stable": true
 }
