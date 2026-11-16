@@ -33,6 +33,17 @@ class CrudGenerator
         if ($permissions) $this->permissionSeeder($table, $permissions, $data['roles'] ?? '');
 
         if (!empty($data['dashboard'])) $this->dashboard($model, $table);
+        $this->recordProjectProfile($data['project'], $data['name']);
+    }
+
+    private function recordProjectProfile(array $project, string $resourceName): void
+    {
+        $path = storage_path('app/crud-schema-studio/project.json');
+        $existing = $this->files->exists($path) ? json_decode($this->files->get($path), true) : [];
+        $resources = collect($existing['resources'] ?? [])->push(Str::studly(Str::singular($resourceName)))->unique()->values()->all();
+        $profile = ['name' => $project['name'], 'description' => $project['description'] ?? '', 'locale' => $project['locale'], 'roles' => $project['roles'] ?? '', 'resources' => $resources, 'updated_at' => now()->toIso8601String()];
+        $this->files->ensureDirectoryExists(dirname($path));
+        $this->files->put($path, json_encode($profile, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)."\n");
     }
 
     private function write(string $path, string $contents): void

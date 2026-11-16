@@ -11,7 +11,7 @@ composer require mcrud/schema-studio
 php artisan vendor:publish --tag=crud-config
 ```
 
-Package discovery registers it automatically. Visit `/crud-generator`, enter a resource and its fields, and check **Also create Dashboard** when wanted. The generator never overwrites existing files. Run `php artisan migrate` after generation.
+Package discovery registers it automatically. Visit `/crud-generator` and first complete the **Project workspace** step. It stores the project name, description, primary language, default roles and generated resource list in `storage/app/crud-schema-studio/project.json`; its values are restored when the page is reopened, and the roles are pre-filled for each new resource. Then enter a resource and its fields, and check **Create dashboard** when wanted. The generator never overwrites generated application files. Run `php artisan migrate` after generation.
 
 The form is also a schema builder: select nullable/unique/default values, choose Arabic and/or English translations, and select resource permissions. Permissions use `spatie/laravel-permission`; publish its migration once after installation with `php artisan vendor:publish --provider="Spatie\Permission\PermissionServiceProvider" --tag="permission-migrations"`, then migrate. Enter comma-separated role names (for example `admin, editor`) and the generated seeder creates those roles and permissions.
 
