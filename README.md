@@ -2,6 +2,8 @@
 
 Browser-based CRUD generator for Laravel 10, 11 and 12 (PHP 8.2+). It creates a migration, Eloquent model, resource controller, Blade CRUD views and routes. It can also create a starter dashboard.
 
+Documentation: https://mcrud.github.io/schema-studio/
+
 ## Install
 
 ```bash
