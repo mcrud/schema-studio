@@ -37,11 +37,11 @@ class ProjectFilesTest extends TestCase
         self::assertArrayHasKey('spatie/laravel-permission', $composer['suggest']);
     }
 
-    public function test_the_changelog_has_an_unreleased_section_with_upgrade_notes(): void
+    public function test_the_changelog_has_a_release_section_with_upgrade_notes(): void
     {
         $changelog = $this->file('CHANGELOG.md');
 
-        self::assertStringContainsString('## [Unreleased]', $changelog);
+        self::assertStringContainsString('## [2.0.0]', $changelog);
         self::assertStringContainsString('### Upgrading from 1.x', $changelog);
         self::assertStringContainsString('spatie/laravel-permission', $changelog);
         self::assertStringContainsString('crud.require_ability', $changelog);

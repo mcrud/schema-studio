@@ -2,7 +2,7 @@
 
 All notable changes to `mcrud/schema-studio` are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
-## [Unreleased] — planned 2.0.0
+## [2.0.0] - 2026-11-17
 
 This release contains changes that need action when upgrading. Read **Upgrading** first.
 
@@ -13,7 +13,6 @@ This release contains changes that need action when upgrading. Read **Upgrading*
 - **Generated routes can require login.** Nothing changes unless you tick *Generate authentication* (or pass `--auth`), but a generated dashboard that is gated by permissions now also sits behind the `auth` middleware.
 - **A new default layout.** Newly generated projects get the sidebar layout (`crud.layout = 'admin'`). Already generated `layouts/app.blade.php` files are never overwritten; delete the file and regenerate, or set `crud.layout` to `simple`, to change it.
 - `password` columns use the `hashed` cast, which needs Laravel 10.14 or newer.
-- Tag the release as `v2.0.0`.
 
 ### Added
 
