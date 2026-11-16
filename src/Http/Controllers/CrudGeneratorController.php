@@ -47,7 +47,11 @@ class CrudGeneratorController
             'migrate' => ['nullable', 'boolean'],
         ]);
         $report = $generator->generate($data);
-        $messages = ['CRUD created for all tables.'];
+        $messages = [];
+        foreach ($report['skipped'] as $skip) {
+            $messages[] = "{$skip['model']} already exists, so it was skipped".($skip['newForeignKeys'] ? ' (its new foreign keys '.implode(', ', $skip['newForeignKeys']).' were not added; create a migration for them)' : '').'.';
+        }
+        array_unshift($messages, $report['skipped'] ? 'CRUD created for the new tables.' : 'CRUD created for all tables.');
         if ($report['dashboard']) $messages[] = 'Dashboard ready at /dashboard.';
         if ($request->boolean('migrate')) $messages = array_merge($messages, $generator->migrateAndSeed($report['seeders']));
         else $messages[] = 'Run php artisan migrate to create the tables.';

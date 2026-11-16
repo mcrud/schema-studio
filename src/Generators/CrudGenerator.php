@@ -13,17 +13,23 @@ class CrudGenerator
 {
     public function __construct(private readonly Filesystem $files) {}
 
-    /** @return array{seeders: list<string>, dashboard: bool} */
+    /** @return array{seeders: list<string>, dashboard: bool, skipped: list<array{model: string, newForeignKeys: list<string>}>} */
     public function generate(array $data): array
     {
         $plan = $this->plan($data);
         $permissions = collect($data['permissions'] ?? [])->unique()->values()->all();
 
-        foreach ($plan['tables'] as $t) {
-            foreach ([app_path("Models/{$t['model']}.php"), app_path("Http/Controllers/{$t['controller']}.php"), resource_path("views/{$t['table']}/index.blade.php")] as $path) {
-                if ($this->files->exists($path)) throw new RuntimeException("Refusing to overwrite existing file: {$path}");
-            }
-        }
+        // Tables that already exist in the app are skipped instead of aborting the whole run.
+        $skipped = [];
+        $plan['tables'] = array_values(array_filter($plan['tables'], function ($t) use (&$skipped): bool {
+            $exists = $this->files->exists(app_path("Models/{$t['model']}.php"))
+                || $this->files->exists(app_path("Http/Controllers/{$t['controller']}.php"))
+                || $this->files->exists(resource_path("views/{$t['table']}/index.blade.php"))
+                || $this->migrationExists("create_{$t['table']}_table");
+            if ($exists) $skipped[] = ['model' => $t['model'], 'newForeignKeys' => collect($t['fields'])->whereNotNull('foreign')->pluck('name')->all()];
+            return !$exists;
+        }));
+        $plan['pivots'] = array_values(array_filter($plan['pivots'], fn ($pivot) => !$this->migrationExists("create_{$pivot['table']}_table")));
 
         $base = now();
         $step = 0;
@@ -47,10 +53,10 @@ class CrudGenerator
             if ($permissions) $seeders[] = $this->permissionSeeder($table, $permissions, $data['roles'] ?? '');
         }
 
-        $dashboard = !empty($data['dashboard']) && $this->dashboard($plan['tables']);
+        $dashboard = !empty($data['dashboard']) && $plan['tables'] !== [] && $this->dashboard($plan['tables']);
         $this->recordProjectProfile($data['project'], collect($plan['tables'])->pluck('model')->all());
 
-        return ['seeders' => $seeders, 'dashboard' => $dashboard];
+        return ['seeders' => $seeders, 'dashboard' => $dashboard, 'skipped' => $skipped];
     }
 
     /** Runs pending migrations and the generated permission seeders; returns human-readable result lines. */
@@ -134,6 +140,11 @@ class CrudGenerator
         foreach (array_keys($tables) as $key) $visit($key);
 
         return ['tables' => array_values($ordered), 'pivots' => $pivots];
+    }
+
+    private function migrationExists(string $name): bool
+    {
+        return $this->files->glob(database_path("migrations/*_{$name}.php")) !== [];
     }
 
     private function recordProjectProfile(array $project, array $models): void

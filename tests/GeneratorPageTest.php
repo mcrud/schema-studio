@@ -45,4 +45,15 @@ class GeneratorPageTest extends TestCase
         $controller = (string) file_get_contents(__DIR__.'/../src/Http/Controllers/CrudGeneratorController.php');
         foreach (["'migrate' => ['nullable', 'boolean']", 'migrateAndSeed'] as $expected) self::assertStringContainsString($expected, $controller);
     }
+
+    public function test_existing_tables_are_skipped_instead_of_aborting_generation(): void
+    {
+        $generator = (string) file_get_contents(__DIR__.'/../src/Generators/CrudGenerator.php');
+        self::assertStringContainsString('migrationExists', $generator);
+        self::assertStringNotContainsString('Refusing to overwrite existing file: {$path}");
+            }
+        }
+
+        $base', $generator);
+    }
 }
