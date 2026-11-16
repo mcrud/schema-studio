@@ -15,17 +15,26 @@ class [[controller]] extends Controller
         $sort = in_array($request->query('sort'), $sortable, true) ? $request->query('sort') : 'id';
         $dir = $request->query('dir') === 'asc' ? 'asc' : 'desc';
 
-        $items = [[model]]::query()[[with]]
-            ->when($request->query('q'), function ($query, $term) {
-                $query->where(function ($query) use ($term) {
-[[search]]
-                });
-            })
+        $items = $this->query($request)
             ->orderBy($sort, $dir)
             ->paginate(15)
             ->withQueryString();
 
-        return view('[[table]].index', compact('items', 'sort', 'dir'));
+        return view('[[table]].index', ['items' => $items, 'sort' => $sort, 'dir' => $dir, 'related' => $this->related()]);
+    }
+
+    public function export(Request $request)
+    {
+[[authViewAny]]        $columns = [[exportColumns]];
+
+        return response()->streamDownload(function () use ($request, $columns): void {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, $columns);
+            foreach ($this->query($request)->orderBy('id')->cursor() as $row) {
+                fputcsv($out, array_map(fn (string $column) => $this->csvCell($row->{$column}), $columns));
+            }
+            fclose($out);
+        }, '[[table]]-'.now()->format('Ymd-His').'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
     public function create()
@@ -35,7 +44,7 @@ class [[controller]] extends Controller
 
     public function store(Store[[model]]Request $request)
     {
-        $item = [[model]]::create($request->safe()->except([[syncKeys]]));
+        $item = [[model]]::create($this->data($request));
 [[syncStore]]
         return redirect()->route('[[table]].index')->with('status', __('[[table]].saved'));
     }
@@ -47,7 +56,7 @@ class [[controller]] extends Controller
 
     public function update(Update[[model]]Request $request, [[model]] $[[param]])
     {
-        $[[param]]->update($request->safe()->except([[syncKeys]]));
+        $[[param]]->update($this->data($request, $[[param]]));
 [[syncUpdate]]
         return redirect()->route('[[table]].index')->with('status', __('[[table]].saved'));
     }
@@ -57,6 +66,43 @@ class [[controller]] extends Controller
 [[authDelete]]        $[[param]]->delete();
 
         return redirect()->route('[[table]].index')->with('status', __('[[table]].deleted'));
+    }
+
+    public function bulkDestroy(Request $request)
+    {
+        $ids = $request->validate(['ids' => ['required', 'array', 'max:500'], 'ids.*' => ['integer']])['ids'];
+        $items = [[model]]::query()->whereKey($ids)->get();
+[[authBulk]]        $items->each->delete();
+
+        return redirect()->back()->with('status', __('[[table]].deleted'));
+    }
+
+[[extraMethods]]    private function data(\Illuminate\Foundation\Http\FormRequest $request, ?[[model]] $item = null): array
+    {
+        $data = $request->safe()->except([[syncKeys]]);
+[[prepare]]
+        return $data;
+    }
+
+    private function query(Request $request)
+    {
+        return [[model]]::query()[[with]]
+            ->when($request->query('q'), function ($query, $term) {
+                $query->where(function ($query) use ($term) {
+[[search]]
+                });
+            })[[filters]];
+    }
+
+    private function csvCell(mixed $value): string
+    {
+        if ($value instanceof \DateTimeInterface) $value = $value->format('Y-m-d H:i:s');
+        elseif (is_bool($value)) $value = $value ? '1' : '0';
+        elseif (is_array($value) || is_object($value)) $value = json_encode($value);
+        $value = (string) $value;
+
+        // Neutralise spreadsheet formula injection.
+        return $value !== '' && str_contains('=+-@', $value[0]) ? "'".$value : $value;
     }
 
     private function related(): array

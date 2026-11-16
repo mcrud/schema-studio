@@ -20,6 +20,7 @@ class GeneratorOutputTest extends TestCase
     protected function defineEnvironment($app): void
     {
         $app['config']->set('app.key', 'base64:'.base64_encode(str_repeat('k', 32)));
+        $app['config']->set('crud.middleware', ['web']);
     }
 
     protected function setUp(): void
@@ -70,6 +71,54 @@ class GeneratorOutputTest extends TestCase
         return glob($this->root.'/'.$pattern) ?: [];
     }
 
+    public function test_preview_is_side_effect_free_and_reports_conflicts(): void
+    {
+        $generator = $this->app->make(CrudGenerator::class);
+        $preview = $generator->preview($this->payload());
+
+        self::assertSame(['categories', 'products', 'tags'], $preview['tables']);
+        self::assertContains('categories', $preview['create_migrations']);
+        self::assertContains('product_tag', $preview['pivot_migrations']);
+        self::assertContains('tests/Feature/ProductCrudTest.php', $preview['files']);
+        self::assertSame([], $preview['conflicts']);
+        self::assertSame([], $this->files('app/Models/*.php'), 'Preview must not write files.');
+
+        (new Filesystem)->ensureDirectoryExists($this->root.'/app/Models');
+        file_put_contents($this->root.'/app/Models/Product.php', '<?php');
+        $conflicted = $generator->preview($this->payload());
+        self::assertContains('app/Models/Product.php', $conflicted['conflicts']);
+    }
+
+    public function test_a_table_can_reference_itself_for_hierarchies(): void
+    {
+        $this->app->make(CrudGenerator::class)->generate([
+            'project' => ['name' => 'Org', 'locale' => 'en'],
+            'tables' => [['name' => 'Category', 'fields' => [['name' => 'name', 'type' => 'string']]]],
+            'relations' => [['from' => 'Category', 'to' => 'Category', 'type' => 'hasMany', 'nullable' => true]],
+            'locales' => ['en'], 'permissions' => [], 'dashboard' => false,
+        ]);
+        $migration = (string) file_get_contents($this->files('database/migrations/*_create_categories_table.php')[0]);
+        self::assertStringContainsString("foreignId('category_id')->nullable()->constrained('categories')->nullOnDelete()", $migration);
+        $model = (string) file_get_contents($this->root.'/app/Models/Category.php');
+        self::assertStringContainsString('public function categories()', $model);
+        self::assertStringContainsString('public function category()', $model);
+    }
+
+    public function test_preflight_prevents_partial_generation_when_a_secondary_artifact_exists(): void
+    {
+        (new Filesystem)->ensureDirectoryExists($this->root.'/app/Http/Requests');
+        file_put_contents($this->root.'/app/Http/Requests/StoreProductRequest.php', '<?php');
+
+        try {
+            $this->app->make(CrudGenerator::class)->generate($this->payload(['tables' => [['name' => 'Product', 'fields' => [['name' => 'name', 'type' => 'string']]]], 'relations' => [], 'permissions' => []]));
+            self::fail('Expected a collision exception.');
+        } catch (\RuntimeException $e) {
+            self::assertStringContainsString('StoreProductRequest.php', $e->getMessage());
+        }
+        self::assertSame([], $this->files('database/migrations/*.php'));
+        self::assertSame([], $this->files('app/Models/*.php'));
+    }
+
     public function test_it_generates_every_artifact_for_every_table_and_all_php_is_valid(): void
     {
         $report = $this->generate();
@@ -81,6 +130,7 @@ class GeneratorOutputTest extends TestCase
         }
         self::assertSame(['CategoryPermissionSeeder', 'ProductPermissionSeeder', 'TagPermissionSeeder', 'StudioDemoSeeder'], $report['seeders']);
         self::assertTrue($report['dashboard']);
+        self::assertFileExists($this->root.'/storage/app/crud-schema-studio/projects/shop.json');
 
         $php = array_merge($this->files('app/*/*.php'), $this->files('app/*.php'), $this->files('database/*/*.php'), $this->files('lang/*/*.php'));
         self::assertNotEmpty($php);

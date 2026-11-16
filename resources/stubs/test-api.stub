@@ -1,0 +1,55 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\[[model]];
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+
+class [[model]]ApiTest extends TestCase
+{
+    use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+[[login]]    }
+
+    public function test_index_lists_records(): void
+    {
+        [[model]]::factory()->count(2)->create();
+
+        $this->getJson(route('api.[[table]].index'))->assertOk()->assertJsonCount(2, 'data');
+    }
+
+    public function test_store_creates_a_record(): void
+    {
+[[payload]]
+        $this->postJson(route('api.[[table]].store'), $payload)->assertCreated();
+
+        $this->assertSame(1, [[model]]::count());
+    }
+
+    public function test_show_returns_the_record(): void
+    {
+        $[[param]] = [[model]]::factory()->create();
+
+        $this->getJson(route('api.[[table]].show', $[[param]]))->assertOk()->assertJsonPath('data.id', $[[param]]->id);
+    }
+
+    public function test_update_changes_the_record(): void
+    {
+        $[[param]] = [[model]]::factory()->create();
+[[payload]]
+        $this->putJson(route('api.[[table]].update', $[[param]]), $payload)->assertOk();
+    }
+
+    public function test_destroy_removes_the_record(): void
+    {
+        $[[param]] = [[model]]::factory()->create();
+
+        $this->deleteJson(route('api.[[table]].destroy', $[[param]]))->assertNoContent();
+
+        $this->[[gone]]($[[param]]);
+    }
+}

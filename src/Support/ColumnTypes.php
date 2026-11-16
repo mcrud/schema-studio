@@ -23,6 +23,16 @@ final class ColumnTypes
         'json' => ['rule' => 'json', 'cast' => null, 'input' => 'textarea', 'faker' => "json_encode(['key' => fake()->word()])"],
         'enum' => ['rule' => 'string|max:255', 'cast' => null, 'input' => 'select', 'faker' => 'fake()->word()'],
         'decimal' => ['rule' => 'numeric', 'cast' => 'decimal:2', 'input' => 'number', 'faker' => 'fake()->randomFloat(2, 1, 1000)'],
+        'email' => ['rule' => 'email|max:255', 'cast' => null, 'input' => 'email', 'faker' => 'fake()->safeEmail()'],
+        'url' => ['rule' => 'url|max:2048', 'cast' => null, 'input' => 'url', 'faker' => 'fake()->url()'],
+        'ipAddress' => ['rule' => 'ip', 'cast' => null, 'input' => 'text', 'faker' => 'fake()->ipv4()'],
+        'longText' => ['rule' => 'string', 'cast' => null, 'input' => 'textarea', 'faker' => 'fake()->paragraphs(3, true)'],
+        'password' => ['rule' => 'string|min:8|max:255', 'cast' => 'hashed', 'input' => 'password', 'faker' => "'password'"],
+        'color' => ['rule' => 'regex:/^#[0-9a-fA-F]{6}$/', 'cast' => null, 'input' => 'color', 'faker' => 'fake()->hexColor()'],
+        'slug' => ['rule' => 'alpha_dash|max:255', 'cast' => null, 'input' => 'text', 'faker' => 'fake()->slug()'],
+        'image' => ['rule' => 'image|max:5120', 'cast' => null, 'input' => 'image', 'faker' => "'uploads/sample.jpg'"],
+        'file' => ['rule' => 'file|max:10240', 'cast' => null, 'input' => 'file', 'faker' => "'uploads/sample.pdf'"],
+        'dateTimeTz' => ['rule' => 'date', 'cast' => 'datetime', 'input' => 'datetime', 'faker' => "fake()->dateTime()->format('Y-m-d H:i:s')"],
     ];
 
     /** @return list<string> */
@@ -35,6 +45,24 @@ final class ColumnTypes
     public static function enumValues(?string $raw): array
     {
         return array_values(array_unique(array_filter(array_map('trim', explode(',', (string) $raw)), fn ($v) => $v !== '')));
+    }
+
+    /** Types that are stored as a plain string column. */
+    public static function storedAsString(string $type): bool
+    {
+        return in_array($type, ['email', 'url', 'password', 'color', 'slug', 'image', 'file'], true);
+    }
+
+    /** Uploaded files; the column holds a path on the public disk. */
+    public static function isUpload(string $type): bool
+    {
+        return in_array($type, ['image', 'file'], true);
+    }
+
+    /** Types that may be left empty when editing (an unchanged password or file is kept; an empty slug is generated). */
+    public static function optionalOnUpdate(string $type): bool
+    {
+        return in_array($type, ['password', 'image', 'file'], true);
     }
 
     public static function rule(string $type): string

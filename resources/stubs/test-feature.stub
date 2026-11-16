@@ -1,0 +1,73 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\[[model]];
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+
+class [[model]]CrudTest extends TestCase
+{
+    use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+[[login]]    }
+
+    public function test_index_is_available(): void
+    {
+        [[model]]::factory()->create();
+
+        $this->get(route('[[table]].index'))->assertOk();
+    }
+[[searchTest]]
+    public function test_create_form_is_available(): void
+    {
+        $this->get(route('[[table]].create'))->assertOk();
+    }
+
+    public function test_store_creates_a_record(): void
+    {
+[[payload]]
+
+        $this->post(route('[[table]].store'), $payload)->assertRedirect(route('[[table]].index'));
+
+        $this->assertSame(1, [[model]]::count());
+    }
+
+    public function test_update_changes_the_record(): void
+    {
+        $[[param]] = [[model]]::factory()->create();
+[[payload]]
+
+        $this->put(route('[[table]].update', $[[param]]), $payload)->assertRedirect(route('[[table]].index'));
+    }
+
+    public function test_destroy_removes_the_record(): void
+    {
+        $[[param]] = [[model]]::factory()->create();
+
+        $this->delete(route('[[table]].destroy', $[[param]]))->assertRedirect(route('[[table]].index'));
+
+        $this->[[gone]]($[[param]]);
+    }
+
+    public function test_bulk_delete_removes_selected_records(): void
+    {
+        $items = [[model]]::factory()->count(2)->create();
+
+        $this->delete(route('[[table]].bulk-destroy'), ['ids' => $items->pluck('id')->all()])->assertRedirect();
+
+        $this->assertSame(0, [[model]]::count());
+    }
+
+    public function test_export_streams_a_csv(): void
+    {
+        [[model]]::factory()->create();
+
+        $response = $this->get(route('[[table]].export'))->assertOk();
+
+        $this->assertStringContainsString('text/csv', $response->headers->get('Content-Type'));
+    }
+[[extraTests]]}

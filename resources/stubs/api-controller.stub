@@ -1,0 +1,66 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Http\Requests\Store[[model]]Request;
+use App\Http\Requests\Update[[model]]Request;
+use App\Http\Resources\[[model]]Resource;
+use App\Models\[[model]];
+use Illuminate\Http\Request;
+[[dataUses]][[gateUse]]
+class [[controller]] extends Controller
+{
+    public function index(Request $request)
+    {
+[[authViewAny]]        $sortable = [[sortable]];
+        $sort = in_array($request->query('sort'), $sortable, true) ? $request->query('sort') : 'id';
+        $dir = $request->query('dir') === 'asc' ? 'asc' : 'desc';
+        $perPage = min(100, max(1, (int) $request->query('per_page', config('crud.api_per_page', 15))));
+
+        $items = [[model]]::query()[[with]]
+            ->when($request->query('q'), function ($query, $term) {
+                $query->where(function ($query) use ($term) {
+[[search]]
+                });
+            })[[filters]]
+            ->orderBy($sort, $dir)
+            ->paginate($perPage)
+            ->withQueryString();
+
+        return [[model]]Resource::collection($items);
+    }
+
+    public function store(Store[[model]]Request $request)
+    {
+[[authCreate]]        $item = [[model]]::create($this->data($request));
+[[syncStore]]
+        return (new [[model]]Resource($item->load([[loads]])))->response()->setStatusCode(201);
+    }
+
+    public function show([[model]] $[[param]])
+    {
+[[authView]]        return new [[model]]Resource($[[param]]->load([[loads]]));
+    }
+
+    public function update(Update[[model]]Request $request, [[model]] $[[param]])
+    {
+[[authUpdate]]        $[[param]]->update($this->data($request, $[[param]]));
+[[syncUpdate]]
+        return new [[model]]Resource($[[param]]->load([[loads]]));
+    }
+
+    public function destroy([[model]] $[[param]])
+    {
+[[authDelete]]        $[[param]]->delete();
+
+        return response()->noContent();
+    }
+
+    private function data(\Illuminate\Foundation\Http\FormRequest $request, ?[[model]] $item = null): array
+    {
+        $data = $request->safe()->except([[syncKeys]]);
+[[prepare]]
+        return $data;
+    }
+}

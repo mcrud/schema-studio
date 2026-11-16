@@ -1,0 +1,26 @@
+    <script>
+    document.querySelectorAll('[data-lookup]').forEach(function (input) {
+        var hidden = document.getElementById(input.dataset.target), list = input.nextElementSibling, timer;
+        function close() { list.classList.add('hidden'); }
+        input.addEventListener('input', function () {
+            clearTimeout(timer);
+            if (input.value === '') hidden.value = '';
+            timer = setTimeout(function () {
+                fetch(input.dataset.lookup + '?q=' + encodeURIComponent(input.value), { headers: { 'Accept': 'application/json' } })
+                    .then(function (response) { return response.json(); })
+                    .then(function (rows) {
+                        list.innerHTML = '';
+                        rows.forEach(function (row) {
+                            var item = document.createElement('li');
+                            item.textContent = row.label;
+                            item.className = 'cursor-pointer px-3 py-2 text-sm hover:bg-slate-100';
+                            item.addEventListener('mousedown', function () { hidden.value = row.id; input.value = row.label; close(); });
+                            list.appendChild(item);
+                        });
+                        list.classList.toggle('hidden', rows.length === 0);
+                    });
+            }, 250);
+        });
+        input.addEventListener('blur', function () { setTimeout(close, 150); });
+    });
+    </script>

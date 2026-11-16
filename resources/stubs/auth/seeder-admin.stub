@@ -1,0 +1,24 @@
+<?php
+
+namespace Database\Seeders;
+
+use App\Models\User;
+use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
+[[uses]]
+class AdminUserSeeder extends Seeder
+{
+    /** Creates the first administrator from ADMIN_EMAIL / ADMIN_PASSWORD (and ADMIN_NAME). */
+    public function run(): void
+    {
+        $password = env('ADMIN_PASSWORD');
+        if ($password === null && app()->isProduction()) {
+            throw new \RuntimeException('Set ADMIN_PASSWORD before seeding the administrator in production.');
+        }
+
+        $user = User::firstOrCreate(
+            ['email' => env('ADMIN_EMAIL', 'admin@example.com')],
+            ['name' => env('ADMIN_NAME', 'Administrator'), 'password' => Hash::make($password ?? 'password')[[verified]]]
+        );
+[[roles]]    }
+}

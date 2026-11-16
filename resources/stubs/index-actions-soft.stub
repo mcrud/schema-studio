@@ -1,0 +1,18 @@
+                    <td class="whitespace-nowrap px-4 py-3 text-end">
+                        @if ($item->trashed())
+                            <form method="POST" action="{{ route('[[table]].restore', $item->id) }}" class="inline">
+                                @csrf @method('PATCH')
+                                <button class="font-medium text-emerald-600 hover:text-emerald-500">{{ __('[[table]].restore') }}</button>
+                            </form>
+                            <form method="POST" action="{{ route('[[table]].force-delete', $item->id) }}" class="ms-3 inline" onsubmit="return confirm('{{ __('[[table]].confirm') }}')">
+                                @csrf @method('DELETE')
+                                <button class="font-medium text-rose-600 hover:text-rose-500">{{ __('[[table]].delete_forever') }}</button>
+                            </form>
+                        @else
+                            <a href="{{ route('[[table]].edit', $item) }}" class="font-medium text-indigo-600 hover:text-indigo-500">{{ __('[[table]].edit') }}</a>
+                            <form method="POST" action="{{ route('[[table]].destroy', $item) }}" class="ms-3 inline" onsubmit="return confirm('{{ __('[[table]].confirm') }}')">
+                                @csrf @method('DELETE')
+                                <button class="font-medium text-rose-600 hover:text-rose-500">{{ __('[[table]].delete') }}</button>
+                            </form>
+                        @endif
+                    </td>

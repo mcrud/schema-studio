@@ -1,0 +1,15 @@
+Route::middleware('guest')->group(function () {
+    Route::get('login', [\App\Http\Controllers\Auth\AuthController::class, 'showLogin'])->name('login');
+    Route::post('login', [\App\Http\Controllers\Auth\AuthController::class, 'login'])->middleware('throttle:5,1');
+[[register]]    Route::get('forgot-password', [\App\Http\Controllers\Auth\PasswordController::class, 'request'])->name('password.request');
+    Route::post('forgot-password', [\App\Http\Controllers\Auth\PasswordController::class, 'email'])->middleware('throttle:5,1')->name('password.email');
+    Route::get('reset-password/{token}', [\App\Http\Controllers\Auth\PasswordController::class, 'reset'])->name('password.reset');
+    Route::post('reset-password', [\App\Http\Controllers\Auth\PasswordController::class, 'update'])->name('password.update');
+});
+
+Route::middleware('auth')->group(function () {
+    Route::post('logout', [\App\Http\Controllers\Auth\AuthController::class, 'logout'])->name('logout');
+    Route::get('profile', [\App\Http\Controllers\ProfileController::class, 'edit'])->name('profile.edit');
+    Route::put('profile', [\App\Http\Controllers\ProfileController::class, 'update'])->name('profile.update');
+    Route::put('profile/password', [\App\Http\Controllers\ProfileController::class, 'password'])->name('profile.password');
+[[verify]][[manage]]});

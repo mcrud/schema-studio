@@ -1,0 +1,25 @@
+    public function restore(string $id)
+    {
+        $item = [[model]]::withTrashed()->findOrFail($id);
+[[authItem]]        $item->restore();
+
+        return redirect()->back()->with('status', __('[[table]].saved'));
+    }
+
+    public function forceDelete(string $id)
+    {
+        $item = [[model]]::withTrashed()->findOrFail($id);
+[[authItem]][[deleteFiles]]        $item->forceDelete();
+
+        return redirect()->back()->with('status', __('[[table]].deleted'));
+    }
+
+    public function bulkRestore(Request $request)
+    {
+        $ids = $request->validate(['ids' => ['required', 'array', 'max:500'], 'ids.*' => ['integer']])['ids'];
+        $items = [[model]]::onlyTrashed()->whereKey($ids)->get();
+[[authBulk]]        $items->each->restore();
+
+        return redirect()->back()->with('status', __('[[table]].saved'));
+    }
+

@@ -1,0 +1,1 @@
+            <input id="[[name]]" name="[[name]]" type="color" value="{{ old('[[name]]', $item->[[name]] ?? '#6366f1') }}" class="mt-1 block h-10 w-20 rounded-lg border border-slate-300 bg-white p-1">

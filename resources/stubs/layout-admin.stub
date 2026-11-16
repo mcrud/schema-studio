@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" dir="{{ in_array(app()->getLocale(), ['ar', 'he', 'fa', 'ur']) ? 'rtl' : 'ltr' }}">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>@yield('title', '[[app]]') · [[app]]</title>
+    <script>
+        try { if (localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && matchMedia('(prefers-color-scheme: dark)').matches)) document.documentElement.classList.add('dark'); } catch (e) {}
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>tailwind.config = { darkMode: 'class' }</script>
+    <style>
+        /* Generated CRUD views use light utility classes; map them to a dark palette. */
+        .dark body { background: #020617; color: #e2e8f0; }
+        .dark .bg-white { background-color: #0f172a; }
+        .dark .bg-slate-50, .dark .bg-slate-100 { background-color: #1e293b; }
+        .dark .border-slate-100, .dark .border-slate-200, .dark .border-slate-300 { border-color: #334155; }
+        .dark .text-slate-900, .dark .text-slate-800, .dark .text-slate-700 { color: #f1f5f9; }
+        .dark .text-slate-600, .dark .text-slate-500 { color: #94a3b8; }
+        .dark input, .dark select, .dark textarea { background-color: #0f172a; color: #f1f5f9; border-color: #334155; }
+        .dark .hover\:bg-slate-100:hover { background-color: #1e293b; }
+    </style>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-800 antialiased">
+<div class="flex min-h-screen">
+    <div id="backdrop" class="fixed inset-0 z-20 hidden bg-slate-900/50 lg:hidden"></div>
+    <aside id="sidebar" class="fixed inset-y-0 start-0 z-30 flex w-64 shrink-0 transform flex-col border-e border-slate-200 bg-white transition-transform ltr:-translate-x-full rtl:translate-x-full lg:static lg:translate-x-0">
+        <div class="flex h-16 items-center border-b border-slate-200 px-5">
+            <span class="text-lg font-semibold text-indigo-600">[[app]]</span>
+        </div>
+        <nav class="flex-1 space-y-1 overflow-y-auto p-3 text-sm">
+            @includeIf('layouts.nav')
+        </nav>
+    </aside>
+
+    <div class="flex min-w-0 flex-1 flex-col">
+        <header class="sticky top-0 z-10 flex h-16 items-center gap-3 border-b border-slate-200 bg-white px-4">
+            <button id="menu" type="button" class="rounded-md p-2 text-slate-600 hover:bg-slate-100" aria-label="Toggle sidebar">
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
+            </button>
+            <div class="ms-auto flex items-center gap-2">
+                <button id="theme" type="button" class="rounded-md p-2 text-slate-600 hover:bg-slate-100" aria-label="Toggle dark mode">
+                    <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20 14.5A8 8 0 019.5 4 8 8 0 1020 14.5z"/></svg>
+                </button>
+                @auth
+                    @if (\Illuminate\Support\Facades\Route::has('profile.edit'))
+                        <a href="{{ route('profile.edit') }}" class="px-2 text-sm text-slate-600 hover:text-indigo-600">{{ auth()->user()->name ?? auth()->user()->email ?? '' }}</a>
+                    @else
+                        <span class="px-2 text-sm text-slate-600">{{ auth()->user()->name ?? auth()->user()->email ?? '' }}</span>
+                    @endif
+                    @if (\Illuminate\Support\Facades\Route::has('logout'))
+                        <form method="POST" action="{{ route('logout') }}">@csrf<button class="rounded-md px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100">Logout</button></form>
+                    @endif
+                @endauth
+            </div>
+        </header>
+
+        <main class="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
+            @if (session('status'))
+                <div class="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{{ session('status') }}</div>
+            @endif
+            @yield('content')
+        </main>
+    </div>
+</div>
+<script>
+    (function () {
+        var sidebar = document.getElementById('sidebar'), backdrop = document.getElementById('backdrop');
+        var closed = ['ltr:-translate-x-full', 'rtl:translate-x-full'];
+        function mobileToggle() {
+            var open = closed.some(function (c) { return sidebar.classList.contains(c); });
+            closed.forEach(function (c) { sidebar.classList.toggle(c, !open); });
+            backdrop.classList.toggle('hidden', !open);
+        }
+        document.getElementById('menu').addEventListener('click', function () {
+            if (window.innerWidth >= 1024) sidebar.classList.toggle('lg:hidden'); else mobileToggle();
+        });
+        backdrop.addEventListener('click', mobileToggle);
+        document.getElementById('theme').addEventListener('click', function () {
+            var dark = document.documentElement.classList.toggle('dark');
+            try { localStorage.setItem('theme', dark ? 'dark' : 'light'); } catch (e) {}
+            document.dispatchEvent(new CustomEvent('themechange'));
+        });
+    })();
+</script>
+@stack('scripts')
+</body>
+</html>

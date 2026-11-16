@@ -1,0 +1,36 @@
+    public function import(Request $request)
+    {
+[[authCreate]]        $request->validate(['file' => ['required', 'file', 'mimes:csv,txt', 'max:2048']]);
+
+        $handle = fopen($request->file('file')->getRealPath(), 'r');
+        $header = array_map(fn ($cell) => trim((string) $cell, "\xEF\xBB\xBF \t"), (array) fgetcsv($handle));
+        $columns = array_values(array_intersect($header, [[importColumns]]));
+        if ($columns === []) {
+            fclose($handle);
+
+            return back()->withErrors(['file' => __('[[table]].import_columns')]);
+        }
+
+        $rows = [];
+        $errors = [];
+        for ($line = 2; ($cells = fgetcsv($handle)) !== false && $line <= 1001; $line++) {
+            if ($cells === [null]) continue;
+            $row = [];
+            foreach ($header as $index => $name) {
+                if (in_array($name, $columns, true)) $row[$name] = ($cells[$index] ?? '') === '' ? null : $cells[$index];
+            }
+            $validator = Validator::make($row, (new Store[[model]]Request)->rules());
+            if ($validator->fails()) $errors[] = __('[[table]].import_row', ['row' => $line, 'message' => $validator->errors()->first()]);
+            else $rows[] = $row;
+        }
+        $tooMany = $cells !== false;
+        fclose($handle);
+
+        if ($tooMany) $errors[] = __('[[table]].import_limit');
+        if ($errors !== []) return back()->withErrors(['file' => array_slice($errors, 0, 10)]);
+
+        DB::transaction(fn () => collect($rows)->each(fn (array $row) => [[model]]::create($row)));
+
+        return redirect()->route('[[table]].index')->with('status', __('[[table]].imported', ['count' => count($rows)]));
+    }
+

@@ -1,0 +1,14 @@
+    public function lookup(Request $request, string $field)
+    {
+[[authViewAny]]        $sources = [
+[[sources]]
+        ];
+        abort_unless(isset($sources[$field]), 404);
+        [$model, $display] = $sources[$field];
+
+        return response()->json($model::query()
+            ->when($request->query('q'), fn ($query, $term) => $query->where($display, 'like', '%'.addcslashes($term, '%_\\').'%'))
+            ->orderBy($display)->limit(20)->get(['id', $display])
+            ->map(fn ($row) => ['id' => $row->id, 'label' => (string) $row->{$display}]));
+    }
+

@@ -1,0 +1,2 @@
+[[current]]            <input id="[[name]]" name="[[name]]" type="file"[[accept]] class="mt-1 block w-full text-sm text-slate-600 file:me-3 file:rounded-lg file:border-0 file:bg-indigo-50 file:px-3 file:py-2 file:text-indigo-700">
+[[remove]]

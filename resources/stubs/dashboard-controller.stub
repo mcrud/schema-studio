@@ -1,0 +1,48 @@
+<?php
+
+namespace App\Http\Controllers;
+
+[[gateUse]][[uses]]
+
+class DashboardController extends Controller
+{
+    /** @return list<array{label: string, model: class-string, route: string, edit: string, display: string, timestamps: bool}> */
+    private function resources(): array
+    {
+        return [
+[[resources]]
+        ];
+    }
+
+    public function index()
+    {
+        $days = collect(range(29, 0))->map(fn (int $i) => now()->subDays($i)->format('Y-m-d'));
+        $since = now()->subDays(29)->startOfDay();
+        $stats = [];
+        $datasets = [];
+        $recent = [];
+
+        foreach ($this->resources() as $resource) {
+[[authorize]]            $model = $resource['model'];
+            $stats[] = ['label' => $resource['label'], 'count' => $model::count(), 'route' => $resource['route']];
+
+            if ($resource['timestamps']) {
+                // Grouped in PHP so the same code works on SQLite, MySQL and PostgreSQL.
+                $perDay = $model::query()->where('created_at', '>=', $since)->pluck('created_at')->countBy(fn ($date) => $date->format('Y-m-d'));
+                $datasets[] = ['label' => $resource['label'], 'data' => $days->map(fn (string $day) => $perDay->get($day, 0))->all()];
+            }
+
+            $recent[] = [
+                'label' => $resource['label'],
+                'route' => $resource['route'],
+                'rows' => $model::query()->latest($resource['timestamps'] ? 'created_at' : 'id')->limit(5)->get()->map(fn ($item) => [
+                    'title' => (string) ($item->{$resource['display']} ?? $item->getKey()),
+                    'url' => route($resource['edit'], $item),
+                    'when' => $resource['timestamps'] ? $item->created_at?->diffForHumans() : null,
+                ])->all(),
+            ];
+        }
+
+        return view('dashboard', ['stats' => $stats, 'labels' => $days->all(), 'datasets' => $datasets, 'recent' => $recent]);
+    }
+}

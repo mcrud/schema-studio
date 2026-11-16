@@ -1,0 +1,22 @@
+@extends('layouts.guest')
+@section('title', 'Sign in')
+@section('content')
+<h1 class="mb-6 text-xl font-semibold text-slate-900">Sign in</h1>
+<form method="POST" action="{{ route('login') }}" class="space-y-4">
+    @csrf
+    <label class="block text-sm font-medium text-slate-700">Email
+        <input type="email" name="email" value="{{ old('email') }}" required autofocus autocomplete="username" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none">
+        @error('email')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+    </label>
+    <label class="block text-sm font-medium text-slate-700">Password
+        <input type="password" name="password" required autocomplete="current-password" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none">
+        @error('password')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+    </label>
+    <label class="flex items-center gap-2 text-sm text-slate-600"><input type="checkbox" name="remember" value="1"> Remember me</label>
+    <button class="w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500">Sign in</button>
+</form>
+<div class="mt-4 flex justify-between text-sm">
+    <a href="{{ route('password.request') }}" class="text-indigo-600 hover:underline">Forgot your password?</a>
+    @if (\Illuminate\Support\Facades\Route::has('register'))<a href="{{ route('register') }}" class="text-indigo-600 hover:underline">Create an account</a>@endif
+</div>
+@endsection

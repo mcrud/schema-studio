@@ -1,6 +1,14 @@
-            <select id="[[name]]" name="[[name]]" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200">
-                <option value="">—</option>
-                @foreach ($related['[[name]]'] as $id => $label)
-                    <option value="{{ $id }}" @selected((string) old('[[name]]', $item->[[name]] ?? '') === (string) $id)>{{ $label }}</option>
-                @endforeach
-            </select>
+            @if ($related['[[name]]'] === null)
+                <div class="relative">
+                    <input type="hidden" id="[[name]]" name="[[name]]" value="{{ old('[[name]]', $item->[[name]] ?? '') }}">
+                    <input type="search" autocomplete="off" data-lookup="{{ route('[[table]].lookup', '[[name]]') }}" data-target="[[name]]" value="{{ isset($item) ? ($item->[[relation]]?->[[display]] ?? '') : '' }}" placeholder="{{ __('[[table]].search') }}" class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200">
+                    <ul class="absolute z-10 mt-1 hidden max-h-48 w-full overflow-auto rounded-lg border border-slate-200 bg-white shadow-lg"></ul>
+                </div>
+            @else
+                <select id="[[name]]" name="[[name]]" class="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200">
+                    <option value="">—</option>
+                    @foreach ($related['[[name]]'] as $id => $label)
+                        <option value="{{ $id }}" @selected((string) old('[[name]]', $item->[[name]] ?? '') === (string) $id)>{{ $label }}</option>
+                    @endforeach
+                </select>
+            @endif

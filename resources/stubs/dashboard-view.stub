@@ -1,0 +1,69 @@
+@extends('layouts.app')
+@section('title', 'Dashboard')
+@section('content')
+<h1 class="mb-6 text-2xl font-semibold text-slate-900">Dashboard</h1>
+
+<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+@foreach ($stats as $stat)
+    <a href="{{ route($stat['route']) }}" class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm transition hover:border-indigo-300 hover:shadow">
+        <div class="text-3xl font-bold text-indigo-600">{{ number_format($stat['count']) }}</div>
+        <div class="mt-1 text-sm text-slate-500">{{ $stat['label'] }}</div>
+    </a>
+@endforeach
+</div>
+
+@if ($datasets)
+<section class="mt-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+    <h2 class="mb-4 text-base font-semibold text-slate-900">New records · last 30 days</h2>
+    <div class="h-72"><canvas id="growth"></canvas></div>
+</section>
+@endif
+
+<div class="mt-8 grid gap-6 lg:grid-cols-2">
+@foreach ($recent as $block)
+    <section class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div class="mb-3 flex items-center justify-between">
+            <h2 class="text-base font-semibold text-slate-900">Latest {{ $block['label'] }}</h2>
+            <a href="{{ route($block['route']) }}" class="text-sm text-indigo-600 hover:underline">View all</a>
+        </div>
+        @forelse ($block['rows'] as $row)
+            <a href="{{ $row['url'] }}" class="flex items-center justify-between border-t border-slate-100 py-2 text-sm first:border-0 hover:text-indigo-600">
+                <span class="truncate text-slate-700">{{ $row['title'] }}</span>
+                <span class="ms-3 shrink-0 text-xs text-slate-500">{{ $row['when'] }}</span>
+            </a>
+        @empty
+            <p class="py-2 text-sm text-slate-500">No records yet.</p>
+        @endforelse
+    </section>
+@endforeach
+</div>
+@endsection
+
+@if ($datasets)
+@push('scripts')
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+    (function () {
+        var palette = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#0ea5e9', '#a855f7', '#14b8a6', '#f97316'];
+        var datasets = @json($datasets).map(function (set, i) {
+            return Object.assign(set, { borderColor: palette[i % palette.length], backgroundColor: palette[i % palette.length], tension: 0.3, pointRadius: 0, borderWidth: 2 });
+        });
+        var chart = new Chart(document.getElementById('growth'), {
+            type: 'line',
+            data: { labels: @json($labels), datasets: datasets },
+            options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
+        });
+        function theme() {
+            var dark = document.documentElement.classList.contains('dark');
+            var text = dark ? '#94a3b8' : '#64748b', grid = dark ? '#1e293b' : '#e2e8f0';
+            chart.options.scales.x.ticks.color = text; chart.options.scales.y.ticks.color = text;
+            chart.options.scales.x.grid.color = grid; chart.options.scales.y.grid.color = grid;
+            chart.options.plugins.legend.labels.color = text;
+            chart.update();
+        }
+        document.addEventListener('themechange', theme);
+        theme();
+    })();
+</script>
+@endpush
+@endif
