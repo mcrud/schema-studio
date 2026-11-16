@@ -6,6 +6,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Mcrud\Crud\Generators\CrudGenerator;
+use Mcrud\Crud\Support\ColumnTypes;
 
 class CrudGeneratorController
 {
@@ -29,9 +30,12 @@ class CrudGeneratorController
             'tables.*.name' => ['required', 'string', 'max:80', 'regex:/^[A-Za-z][A-Za-z0-9_]*$/'],
             'tables.*.fields' => ['required', 'array', 'min:1', 'max:30'],
             'tables.*.fields.*.name' => ['required', 'string', 'max:80', 'regex:/^[A-Za-z][A-Za-z0-9_]*$/'],
-            'tables.*.fields.*.type' => ['required', 'in:string,text,integer,bigInteger,boolean,date,dateTime,decimal'],
+            'tables.*.fields.*.type' => ['required', 'in:'.implode(',', ColumnTypes::names())],
             'tables.*.fields.*.nullable' => ['nullable', 'boolean'],
             'tables.*.fields.*.unique' => ['nullable', 'boolean'],
+            'tables.*.soft_deletes' => ['nullable', 'boolean'],
+            'tables.*.timestamps' => ['nullable', 'boolean'],
+            'tables.*.fields.*.values' => ['nullable', 'string', 'max:255', 'regex:/^[A-Za-z0-9_ ,.\\-]+$/'],
             'tables.*.fields.*.default' => ['nullable', 'string', 'max:100'],
             'relations' => ['nullable', 'array', 'max:40'],
             'relations.*.from' => ['required', 'string', 'max:80'],
@@ -45,6 +49,8 @@ class CrudGeneratorController
             'roles' => ['nullable', 'string', 'max:255', 'regex:/^[A-Za-z0-9_ ,-]+$/'],
             'dashboard' => ['nullable', 'boolean'],
             'migrate' => ['nullable', 'boolean'],
+            'sample_data' => ['nullable', 'boolean'],
+            'sample_rows' => ['nullable', 'integer', 'between:1,100'],
         ]);
         $report = $generator->generate($data);
         $messages = [];
@@ -53,6 +59,7 @@ class CrudGeneratorController
         }
         array_unshift($messages, $report['skipped'] ? 'CRUD created for the new tables.' : 'CRUD created for all tables.');
         if ($report['dashboard']) $messages[] = 'Dashboard ready at /dashboard.';
+        if ($report['demo'] && !$request->boolean('migrate')) $messages[] = "Run php artisan db:seed --class={$report['demo']} for sample data.";
         if ($request->boolean('migrate')) $messages = array_merge($messages, $generator->migrateAndSeed($report['seeders']));
         else $messages[] = 'Run php artisan migrate to create the tables.';
 

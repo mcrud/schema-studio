@@ -1,0 +1,38 @@
+@extends('layouts.app')
+@section('title', __('[[table]].title'))
+@section('content')
+<div class="mb-6 flex items-center justify-between gap-4">
+    <h1 class="text-2xl font-semibold text-slate-900">{{ __('[[table]].title') }}</h1>
+    <a href="{{ route('[[table]].create') }}" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-500">＋ {{ __('[[table]].create') }}</a>
+</div>
+<form method="GET" class="mb-4">
+    <input type="search" name="q" value="{{ request('q') }}" placeholder="{{ __('[[table]].search') }}" class="w-full max-w-sm rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200">
+</form>
+<div class="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+    <table class="min-w-full divide-y divide-slate-200 text-sm">
+        <thead class="bg-slate-50 text-start text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <tr>
+[[headers]]
+                <th class="px-4 py-3 text-end">{{ __('[[table]].actions') }}</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+            @forelse ($items as $item)
+                <tr class="hover:bg-slate-50">
+[[cells]]
+                    <td class="whitespace-nowrap px-4 py-3 text-end">
+                        <a href="{{ route('[[table]].edit', $item) }}" class="font-medium text-indigo-600 hover:text-indigo-500">{{ __('[[table]].edit') }}</a>
+                        <form method="POST" action="{{ route('[[table]].destroy', $item) }}" class="ms-3 inline" onsubmit="return confirm('{{ __('[[table]].confirm') }}')">
+                            @csrf @method('DELETE')
+                            <button class="font-medium text-rose-600 hover:text-rose-500">{{ __('[[table]].delete') }}</button>
+                        </form>
+                    </td>
+                </tr>
+            @empty
+                <tr><td colspan="[[colspan]]" class="px-4 py-12 text-center text-slate-500">{{ __('[[table]].empty') }}</td></tr>
+            @endforelse
+        </tbody>
+    </table>
+</div>
+<div class="mt-4">{{ $items->links() }}</div>
+@endsection

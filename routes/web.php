@@ -7,3 +7,11 @@ Route::middleware(config('crud.middleware', ['web']))->prefix(config('crud.route
     Route::get('/', [CrudGeneratorController::class, 'index'])->name('crud-generator.index');
     Route::post('/', [CrudGeneratorController::class, 'store'])->name('crud-generator.store');
 });
+
+Route::middleware(config('crud.middleware', ['web']))->prefix(config('crud.route_prefix', 'crud-generator'))->group(function (): void {
+    Route::get('assets/{file}', function (string $file) {
+        abort_unless($file === 'studio.js', 404);
+
+        return response()->file(__DIR__.'/../resources/js/studio.js', ['Content-Type' => 'application/javascript; charset=utf-8', 'Cache-Control' => 'no-cache']);
+    })->name('crud-generator.asset');
+});

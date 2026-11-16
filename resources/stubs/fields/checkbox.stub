@@ -1,0 +1,2 @@
+            <input type="hidden" name="[[name]]" value="0">
+            <input id="[[name]]" name="[[name]]" type="checkbox" value="1" @checked(old('[[name]]', $item->[[name]] ?? false)) class="mt-2 h-4 w-4 rounded border-slate-300 text-indigo-600">

@@ -1,0 +1,68 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Http\Requests\Store[[model]]Request;
+use App\Http\Requests\Update[[model]]Request;
+use App\Models\[[model]];
+[[uses]]use Illuminate\Http\Request;
+[[gateUse]]
+class [[controller]] extends Controller
+{
+    public function index(Request $request)
+    {
+[[authViewAny]]        $sortable = [[sortable]];
+        $sort = in_array($request->query('sort'), $sortable, true) ? $request->query('sort') : 'id';
+        $dir = $request->query('dir') === 'asc' ? 'asc' : 'desc';
+
+        $items = [[model]]::query()[[with]]
+            ->when($request->query('q'), function ($query, $term) {
+                $query->where(function ($query) use ($term) {
+[[search]]
+                });
+            })
+            ->orderBy($sort, $dir)
+            ->paginate(15)
+            ->withQueryString();
+
+        return view('[[table]].index', compact('items', 'sort', 'dir'));
+    }
+
+    public function create()
+    {
+[[authCreate]]        return view('[[table]].form', ['related' => $this->related()]);
+    }
+
+    public function store(Store[[model]]Request $request)
+    {
+        $item = [[model]]::create($request->safe()->except([[syncKeys]]));
+[[syncStore]]
+        return redirect()->route('[[table]].index')->with('status', __('[[table]].saved'));
+    }
+
+    public function edit([[model]] $[[param]])
+    {
+[[authUpdate]]        return view('[[table]].form', ['item' => $[[param]], 'related' => $this->related()]);
+    }
+
+    public function update(Update[[model]]Request $request, [[model]] $[[param]])
+    {
+        $[[param]]->update($request->safe()->except([[syncKeys]]));
+[[syncUpdate]]
+        return redirect()->route('[[table]].index')->with('status', __('[[table]].saved'));
+    }
+
+    public function destroy([[model]] $[[param]])
+    {
+[[authDelete]]        $[[param]]->delete();
+
+        return redirect()->route('[[table]].index')->with('status', __('[[table]].deleted'));
+    }
+
+    private function related(): array
+    {
+        return [
+[[related]]
+        ];
+    }
+}
