@@ -31,7 +31,7 @@ class GeneratorPageTest extends TestCase
     public function test_backend_validation_still_protects_resource_payloads(): void
     {
         $controller = (string) file_get_contents(__DIR__.'/../src/Http/Controllers/CrudGeneratorController.php');
-        foreach (["'tables' => ['required', 'array', 'min:1'", "'tables.*.fields' => ['required', 'array', 'min:1'", "'tables.*.fields.*.type' => ['required', 'in:'.implode(',', ColumnTypes::names())]", "'relations.*.type' => ['required', 'in:hasMany,hasOne,belongsToMany']"] as $expected) self::assertStringContainsString($expected, $controller);
+        foreach (["'tables' => ['required', 'array', 'min:1'", "'tables.*.fields' => ['required', 'array', 'min:1'", "'tables.*.fields.*.type' => ['required', 'in:'.implode(',', ColumnTypes::names())]", "'relations.*.type' => ['required', 'in:hasMany,hasOne,belongsTo,belongsToMany']"] as $expected) self::assertStringContainsString($expected, $controller);
     }
 
     public function test_canvas_supports_multiple_tables_with_relations(): void
