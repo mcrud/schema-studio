@@ -25,13 +25,19 @@ class CrudGeneratorController
             'project.description' => ['nullable', 'string', 'max:500'],
             'project.locale' => ['required', 'in:en,ar'],
             'project.roles' => ['nullable', 'string', 'max:255', 'regex:/^[A-Za-z0-9_ ,-]+$/'],
-            'name' => ['required', 'string', 'max:80', 'regex:/^[A-Za-z][A-Za-z0-9_]*$/'],
-            'fields' => ['required', 'array', 'min:1', 'max:30'],
-            'fields.*.name' => ['required', 'string', 'max:80', 'regex:/^[A-Za-z][A-Za-z0-9_]*$/'],
-            'fields.*.type' => ['required', 'in:string,text,integer,bigInteger,boolean,date,dateTime,decimal'],
-            'fields.*.nullable' => ['nullable', 'boolean'],
-            'fields.*.unique' => ['nullable', 'boolean'],
-            'fields.*.default' => ['nullable', 'string', 'max:100'],
+            'tables' => ['required', 'array', 'min:1', 'max:12'],
+            'tables.*.name' => ['required', 'string', 'max:80', 'regex:/^[A-Za-z][A-Za-z0-9_]*$/'],
+            'tables.*.fields' => ['required', 'array', 'min:1', 'max:30'],
+            'tables.*.fields.*.name' => ['required', 'string', 'max:80', 'regex:/^[A-Za-z][A-Za-z0-9_]*$/'],
+            'tables.*.fields.*.type' => ['required', 'in:string,text,integer,bigInteger,boolean,date,dateTime,decimal'],
+            'tables.*.fields.*.nullable' => ['nullable', 'boolean'],
+            'tables.*.fields.*.unique' => ['nullable', 'boolean'],
+            'tables.*.fields.*.default' => ['nullable', 'string', 'max:100'],
+            'relations' => ['nullable', 'array', 'max:40'],
+            'relations.*.from' => ['required', 'string', 'max:80'],
+            'relations.*.to' => ['required', 'string', 'max:80'],
+            'relations.*.type' => ['required', 'in:hasMany,hasOne,belongsToMany'],
+            'relations.*.nullable' => ['nullable', 'boolean'],
             'locales' => ['required', 'array', 'min:1'],
             'locales.*' => ['in:en,ar'],
             'permissions' => ['nullable', 'array'],
@@ -40,6 +46,6 @@ class CrudGeneratorController
             'dashboard' => ['nullable', 'boolean'],
         ]);
         $generator->generate($data);
-        return back()->with('status', 'CRUD created. Run php artisan migrate to create the table.');
+        return back()->with('status', 'CRUD created for all tables. Run php artisan migrate to create the table.');
     }
 }
