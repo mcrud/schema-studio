@@ -1,0 +1,66 @@
+name: Tests
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: PHP ${{ matrix.php }} · Laravel ${{ matrix.laravel }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.2', '8.3']
+        laravel: ['10', '11', '12']
+        include:
+          - laravel: '10'
+            framework: '^10.0'
+            testbench: '^8.0'
+          - laravel: '11'
+            framework: '^11.0'
+            testbench: '^9.0'
+          - laravel: '12'
+            framework: '^12.0'
+            testbench: '^10.0'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          # gd: the generated upload tests fake images; pdo_sqlite: the end-to-end tests migrate on SQLite.
+          extensions: mbstring, fileinfo, gd, pdo_sqlite, sqlite3
+          coverage: none
+
+      # Node.js runs the browser-side translation engine checks (they are skipped when it is missing).
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Cache Composer downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/composer/files
+          key: composer-${{ matrix.php }}-${{ matrix.laravel }}-${{ hashFiles('composer.json') }}
+          restore-keys: composer-${{ matrix.php }}-${{ matrix.laravel }}-
+
+      - name: Select Laravel ${{ matrix.laravel }}
+        run: composer require "laravel/framework:${{ matrix.framework }}" "orchestra/testbench:${{ matrix.testbench }}" --no-interaction --no-update
+
+      - name: Install dependencies
+        run: composer update --prefer-dist --no-interaction --no-progress
+
+      - name: Run the test suite
+        run: vendor/bin/phpunit
