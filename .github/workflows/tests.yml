@@ -56,6 +56,9 @@ jobs:
           key: composer-${{ matrix.php }}-${{ matrix.laravel }}-${{ hashFiles('composer.json') }}
           restore-keys: composer-${{ matrix.php }}-${{ matrix.laravel }}-
 
+      - name: Validate composer.json
+        run: composer validate --no-check-lock --no-interaction
+
       - name: Select Laravel ${{ matrix.laravel }}
         run: composer require "laravel/framework:${{ matrix.framework }}" "orchestra/testbench:${{ matrix.testbench }}" --no-interaction --no-update
 

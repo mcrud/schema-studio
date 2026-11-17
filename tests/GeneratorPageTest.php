@@ -30,7 +30,7 @@ class GeneratorPageTest extends TestCase
 
     public function test_backend_validation_still_protects_resource_payloads(): void
     {
-        $controller = (string) file_get_contents(__DIR__.'/../src/Http/Controllers/CrudGeneratorController.php');
+        $controller = (string) file_get_contents(__DIR__.'/../src/Schema/SchemaRules.php');
         foreach (["'tables' => ['required', 'array', 'min:1'", "'tables.*.fields' => ['required', 'array', 'min:1'", "'tables.*.fields.*.type' => ['required', 'in:'.implode(',', ColumnTypes::names())]", "'relations.*.type' => ['required', 'in:hasMany,hasOne,belongsTo,belongsToMany']"] as $expected) self::assertStringContainsString($expected, $controller);
     }
 
@@ -44,8 +44,9 @@ class GeneratorPageTest extends TestCase
     {
         $view = $this->view();
         foreach (['name="migrate"', 'name="sample_data"', 'name="sample_rows"', 'name="dashboard" value="1" checked'] as $expected) self::assertStringContainsString($expected, $view);
-        $controller = (string) file_get_contents(__DIR__.'/../src/Http/Controllers/CrudGeneratorController.php');
-        foreach (["'migrate' => ['nullable', 'boolean']", "'sample_data' => ['nullable', 'boolean']", 'migrateAndSeed'] as $expected) self::assertStringContainsString($expected, $controller);
+        $rules = (string) file_get_contents(__DIR__.'/../src/Schema/SchemaRules.php');
+        foreach (["'migrate' => ['nullable', 'boolean']", "'sample_data' => ['nullable', 'boolean']"] as $expected) self::assertStringContainsString($expected, $rules);
+        self::assertStringContainsString('migrateAndSeed', (string) file_get_contents(__DIR__.'/../src/Http/Controllers/CrudGeneratorController.php'));
     }
 
     public function test_existing_tables_are_skipped_instead_of_aborting_generation(): void
