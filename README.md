@@ -46,6 +46,7 @@ Automation without the browser:
 php artisan crud:generate schema.json --dry-run
 php artisan crud:generate schema.json --migrate
 php artisan crud:generate schema.json --auth      # also generate login, profile and user management
+php artisan crud:generate schema.json --skip-validation  # skip the schema check that runs first
 ```
 
 ## The wizard
@@ -174,8 +175,10 @@ Imported tables (marked **DB**) can be edited in the column inspector: **Edit th
 To bring files you already generated in line with a changed schema:
 
 ```bash
+php artisan crud:validate schema.json      # check the schema (exit code 1 on problems); --json for CI
+php artisan crud:types                     # list the column types with their rule, cast and input
 php artisan crud:diff schema.json          # unified diff of every generated file vs. what is on disk
-php artisan crud:diff schema.json --stat   # only missing / changed / identical
+php artisan crud:diff schema.json --stat   # only missing / changed / identical (add --json for scripts)
 php artisan crud:sync schema.json          # create missing files, merge the rest with conflict markers
 php artisan crud:sync schema.json --only=app/Models/Product.php
 php artisan crud:sync schema.json --force  # replace differing files instead of merging

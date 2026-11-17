@@ -2,6 +2,20 @@
 
 All notable changes to `mcrud/schema-studio` are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- **`php artisan crud:validate schema.json`** checks an exported schema without generating anything: the same request rules the studio applies, then the generator's own checks (duplicate tables and columns, unknown relation targets, enums without values, unknown index columns, relation cycles). It exits with a failure code and supports `--json`, so it can run in CI.
+- **`php artisan crud:types`** lists every column type with its validation rule, cast and form input (`--json` available).
+- `crud:diff --json` prints file statuses (and diffs, unless `--stat` is given) as JSON.
+- Repository files: `.editorconfig`, `.gitattributes` (tests and CI files stay out of release archives), Dependabot, issue and pull request templates, and a `composer validate` step in CI.
+
+### Changed
+
+- `crud:generate` validates the schema first and stops with a list of problems before writing any file. Pass `--skip-validation` to keep the previous behaviour.
+- The studio's validation rules moved to `Mcrud\Crud\Schema\SchemaRules`, shared by the controller and the commands.
+
 ## [2.0.0] - 2026-11-17
 
 This release contains changes that need action when upgrading. Read **Upgrading** first.
